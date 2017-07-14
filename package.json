@@ -1,26 +1,25 @@
 {
-  "name": "graphiql",
-  "version": "0.11.2",
-  "description": "An graphical interactive in-browser GraphQL IDE.",
+  "name": "graphiql-custom-headers",
+  "version": "1.0.0",
+  "description": "Extended facebook's GraphQL IDE with Custom Headers feature.",
   "contributors": [
-    "Hyohyeon Jeong <asiandrummer@fb.com>",
-    "Lee Byron <lee@leebyron.com> (http://leebyron.com/)"
+    "Juraj Carnogursky <durisvk2@gmail.com>"
   ],
-  "homepage": "https://github.com/graphql/graphiql",
+  "homepage": "https://github.com/Durisvk/graphiql",
   "bugs": {
-    "url": "https://github.com/graphql/graphiql/issues"
+    "url": "https://github.com/Durisvk/graphiql/issues"
   },
   "repository": {
     "type": "git",
-    "url": "http://github.com/graphql/graphiql.git"
+    "url": "https://github.com/Durisvk/graphiql"
   },
   "license": "SEE LICENSE IN LICENSE",
   "main": "dist/index.js",
   "files": [
     "dist",
-    "graphiql.js",
-    "graphiql.min.js",
-    "graphiql.css",
+    "graphiql-custom-headers.js",
+    "graphiql-custom-headers.min.js",
+    "graphiql-custom-headers.css",
     "README.md",
     "LICENSE"
   ],
