@@ -134,11 +134,8 @@ export class GraphiQL extends React.Component {
       endpoint: alreadySelected,
       customHeadersOpen:
         this._storage.get('customHeadersOpen') === 'true' || false,
-      docExplorerWidth: Number(this._storage.get('docExplorerWidth')) || 350,
       customHeadersWidth:
         Number(this._storage.get('customHeadersWidth')) || 500,
-      isWaitingForResponse: false,
-      subscription: null,
       customHeaders: this._storage.get('customHeaders') ?
         JSON.parse(this._storage.get('customHeaders')) :
         {
@@ -270,6 +267,7 @@ export class GraphiQL extends React.Component {
     );
   }
 
+  //eslint-disable-next-line
   setEndpoint() {
     const { endpoint } = this.state;
     localStorage.setItem('chromeiqlEndpoint', endpoint);
