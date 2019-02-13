@@ -3,6 +3,28 @@ GraphiQL
 
 This is a fork of graphiql, where it was added functionalities to inject custom headers on the request and also change the endpoint that is being used on the fly.
 
+Basically we enable the option to add to the `graphiql` playground the option to add custom headers that are going to be used on the request to the `graphql` server.
+
+Also, to make possible to do requests to other endpoints, there is also a set endpoint feature, where an url can be added and it is going to be used as the target.
+
+You have to change the `fetcher` that is passed to the component.
+
+```js
+// ...
+function graphQLFetcher(graphQLParams, additionalHeaders, endpoint) {
+  return fetch(endpoint + '/graphql', {
+    method: 'post',
+    headers: additionalHeaders,
+    body: JSON.stringify(graphQLParams),
+  }).then(response => response.json());
+}
+
+// ...
+```
+
+All other functionalities remain the same as the original package.
+
+
 */ˈɡrafək(ə)l/* A graphical interactive in-browser GraphQL IDE. [Try the live demo](http://graphql.org/swapi-graphql).
 
 [![Build Status](https://travis-ci.org/graphql/graphiql.svg?branch=master)](https://travis-ci.org/graphql/graphiql)
@@ -345,3 +367,7 @@ fragment HumanFragment on Human {
 ```
 
 Read more from [GraphQL Fragment Specification](http://facebook.github.io/graphql/#sec-Language.Fragments).
+
+
+### Copyright
+Copyright (c) Facebook, Inc. and its affiliates.
