@@ -74,6 +74,11 @@ export class GraphiQL extends React.Component {
       throw new TypeError('GraphiQL requires a fetcher function.');
     }
 
+    this.setEndpoint = this.setEndpoint.bind(this);
+    this.updateEndpoint = this.updateEndpoint.bind(this);
+
+    const alreadySelected = localStorage.getItem('chromeiqlEndpoint') || window.location.origin;
+
     // Cache the storage instance
     this._storage = new StorageAPI(props.storage);
 
@@ -120,6 +125,7 @@ export class GraphiQL extends React.Component {
       isWaitingForResponse: false,
       subscription: null,
       ...queryFacts,
+      endpoint: alreadySelected
     };
 
     // Ensure only the last executed editor query is rendered.
@@ -236,7 +242,22 @@ export class GraphiQL extends React.Component {
     this._storage.set('historyPaneOpen', this.state.historyPaneOpen);
   }
 
+  setEndpoint() {
+    const { endpoint } = this.state;
+    localStorage.setItem('chromeiqlEndpoint', endpoint);
+    this._fetchSchema();
+  }
+
+  updateEndpoint(e){
+    const value = e.target.value;
+    this.setState({
+      endpoint: value
+    });
+  }
+
   render() {
+    const { endpoint } = this.state;
+
     const children = React.Children.toArray(this.props.children);
 
     const logo =
@@ -261,7 +282,19 @@ export class GraphiQL extends React.Component {
           title="Show History"
           label="History"
         />
-
+        <ToolbarButton
+          onClick={this.handleCustomHeaders}
+          title="Custom Headers"
+          label="Headers"
+        />
+        <div id = "application">
+          <div id="url-bar" className="graphiql-container" >
+            <input type="text" id="url-box" defaultValue={endpoint} onChange={this.updateEndpoint} />
+            <a id="url-save-button" className="toolbar-button" onClick={this.setEndpoint}>
+              Set endpoint
+            </a>
+          </div>
+        </div>
       </GraphiQL.Toolbar>;
 
     const footer = find(children, child => child.type === GraphiQL.Footer);
@@ -482,122 +515,148 @@ export class GraphiQL extends React.Component {
 
   _fetchSchema() {
     const fetcher = this.props.fetcher;
+    const endpoint = this.state.endpoint;
 
-    const fetch = observableToPromise(fetcher({ query: introspectionQuery }));
-    if (!isPromise(fetch)) {
-      this.setState({
-        response: 'Fetcher did not return a Promise for introspection.',
-      });
-      return;
-    }
-
-    fetch
-      .then(result => {
-        if (result.data) {
-          return result;
-        }
-
-        // Try the stock introspection query first, falling back on the
-        // sans-subscriptions query for services which do not yet support it.
-        const fetch2 = observableToPromise(
-          fetcher({
-            query: introspectionQuerySansSubscriptions,
-          }),
-        );
-        if (!isPromise(fetch)) {
-          throw new Error(
-            'Fetcher did not return a Promise for introspection.',
-          );
-        }
-        return fetch2;
-      })
-      .then(result => {
-        // If a schema was provided while this fetch was underway, then
-        // satisfy the race condition by respecting the already
-        // provided schema.
-        if (this.state.schema !== undefined) {
-          return;
-        }
-
-        if (result && result.data) {
-          const schema = buildClientSchema(result.data);
-          const queryFacts = getQueryFacts(schema, this.state.query);
-          this.setState({ schema, ...queryFacts });
-        } else {
-          const responseString = typeof result === 'string'
-            ? result
-            : JSON.stringify(result, null, 2);
-          this.setState({
-            // Set schema to `null` to explicitly indicate that no schema exists.
-            schema: null,
-            response: responseString,
-          });
-        }
-      })
-      .catch(error => {
+    if (endpoint) {
+      const fetch = observableToPromise(
+        fetcher(
+          {
+            query: introspectionQuery,
+          },
+          this.state.customHeaders,
+          endpoint
+        ),
+      );
+  
+      if (!isPromise(fetch)) {
         this.setState({
-          schema: null,
-          response: error && String(error.stack || error),
+          response: 'Fetcher did not return a Promise for introspection.',
         });
-      });
+        return;
+      }
+  
+      fetch
+        .then(result => {
+          if (result.data) {
+            return result;
+          }
+  
+          // Try the stock introspection query first, falling back on the
+          // sans-subscriptions query for services which do not yet support it.
+          const fetch2 = observableToPromise(
+            fetcher(
+              {
+                query: introspectionQuerySansSubscriptions,
+              },
+              this.state.customHeaders,
+              endpoint
+            ),
+          );
+          if (!isPromise(fetch)) {
+            throw new Error(
+              'Fetcher did not return a Promise for introspection.',
+            );
+          }
+          return fetch2;
+        })
+        .then(result => {
+          // If a schema was provided while this fetch was underway, then
+          // satisfy the race condition by respecting the already
+          // provided schema.
+          if (this.state.schema !== undefined) {
+            return;
+          }
+  
+          if (result && result.data) {
+            const schema = buildClientSchema(result.data);
+            const queryFacts = getQueryFacts(schema, this.state.query);
+            this.setState({ schema, ...queryFacts });
+          } else {
+            const responseString =
+              typeof result === 'string' ?
+                result :
+                JSON.stringify(result, null, 2);
+            this.setState({
+              // Set schema to `null` to explicitly
+              // indicate that no schema exists.
+              schema: null,
+              response: responseString,
+            });
+          }
+        })
+        .catch(error => {
+          this.setState({
+            schema: null,
+            response: error && String(error.stack || error),
+          });
+        });
+    }
+    
   }
 
   _fetchQuery(query, variables, operationName, cb) {
     const fetcher = this.props.fetcher;
-    let jsonVariables = null;
+    const endpoint = this.state.endpoint;
 
-    try {
-      jsonVariables = variables && variables.trim() !== ''
-        ? JSON.parse(variables)
-        : null;
-    } catch (error) {
-      throw new Error(`Variables are invalid JSON: ${error.message}.`);
-    }
+    if (endpoint) {
+      let jsonVariables = null;
+      try {
+        jsonVariables =
+          variables && variables.trim() !== '' ? JSON.parse(variables) : null;
+      } catch (error) {
+        throw new Error(`Variables are invalid JSON: ${error.message}.`);
+      }
 
-    if (typeof jsonVariables !== 'object') {
-      throw new Error('Variables are not a JSON object.');
-    }
+      if (typeof jsonVariables !== 'object') {
+        throw new Error('Variables are not a JSON object.');
+      }
 
-    const fetch = fetcher({
-      query,
-      variables: jsonVariables,
-      operationName,
-    });
-
-    if (isPromise(fetch)) {
-      // If fetcher returned a Promise, then call the callback when the promise
-      // resolves, otherwise handle the error.
-      fetch.then(cb).catch(error => {
-        this.setState({
-          isWaitingForResponse: false,
-          response: error && String(error.stack || error),
-        });
-      });
-    } else if (isObservable(fetch)) {
-      // If the fetcher returned an Observable, then subscribe to it, calling
-      // the callback on each next value, and handling both errors and the
-      // completion of the Observable. Returns a Subscription object.
-      const subscription = fetch.subscribe({
-        next: cb,
-        error: error => {
+      const fetch = fetcher(
+        {
+          query,
+          variables: jsonVariables,
+          operationName,
+        },
+        this.state.customHeaders,
+        endpoint
+      );
+      if (isPromise(fetch)) {
+        // If fetcher returned a Promise, then call the callback when the promise
+        // resolves, otherwise handle the error.
+        fetch.then(cb).catch(error => {
           this.setState({
             isWaitingForResponse: false,
             response: error && String(error.stack || error),
-            subscription: null,
           });
-        },
-        complete: () => {
-          this.setState({
-            isWaitingForResponse: false,
-            subscription: null,
-          });
-        },
-      });
+        });
+      } else if (isObservable(fetch)) {
+        // If the fetcher returned an Observable, then subscribe to it, calling
+        // the callback on each next value, and handling both errors and the
+        // completion of the Observable. Returns a Subscription object.
+        const subscription = fetch.subscribe({
+          next: cb,
+          error: error => {
+            this.setState({
+              isWaitingForResponse: false,
+              response: error && String(error.stack || error),
+              subscription: null,
+            });
+          },
+          complete: () => {
+            this.setState({
+              isWaitingForResponse: false,
+              subscription: null,
+            });
+          },
+        });
 
-      return subscription;
-    } else {
-      throw new Error('Fetcher did not return Promise or Observable.');
+        return subscription;
+      } else {
+        throw new Error('Fetcher did not return Promise or Observable.');
+      }
     }
+
+    
   }
 
   handleClickReference = reference => {
