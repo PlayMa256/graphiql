@@ -1,6 +1,8 @@
 GraphiQL
 ========
 
+This is a fork of graphiql, where it was added functionalities to inject custom headers on the request and also change the endpoint that is being used on the fly.
+
 */ˈɡrafək(ə)l/* A graphical interactive in-browser GraphQL IDE. [Try the live demo](http://graphql.org/swapi-graphql).
 
 [![Build Status](https://travis-ci.org/graphql/graphiql.svg?branch=master)](https://travis-ci.org/graphql/graphiql)
