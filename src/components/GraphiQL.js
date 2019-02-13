@@ -64,6 +64,7 @@ export class GraphiQL extends React.Component {
     editorTheme: PropTypes.string,
     onToggleHistory: PropTypes.func,
     ResultsTooltip: PropTypes.any,
+    onCustomHeaders: PropTypes.func,
   };
 
   constructor(props) {
@@ -83,28 +84,33 @@ export class GraphiQL extends React.Component {
     this._storage = new StorageAPI(props.storage);
 
     // Determine the initial query to display.
-    const query = props.query !== undefined
-      ? props.query
-      : this._storage.get('query') !== null
-        ? this._storage.get('query')
-        : props.defaultQuery !== undefined ? props.defaultQuery : defaultQuery;
+    const query =
+      props.query !== undefined ?
+        props.query :
+        this._storage.get('query') !== null ?
+          this._storage.get('query') :
+          props.defaultQuery !== undefined ?
+            props.defaultQuery :
+            defaultQuery;
 
     // Get the initial query facts.
     const queryFacts = getQueryFacts(props.schema, query);
 
     // Determine the initial variables to display.
-    const variables = props.variables !== undefined
-      ? props.variables
-      : this._storage.get('variables');
+    const variables =
+      props.variables !== undefined ?
+        props.variables :
+        this._storage.get('variables');
 
     // Determine the initial operationName to use.
-    const operationName = props.operationName !== undefined
-      ? props.operationName
-      : getSelectedOperationName(
-          null,
-          this._storage.get('operationName'),
-          queryFacts && queryFacts.operations,
-        );
+    const operationName =
+      props.operationName !== undefined ?
+        props.operationName :
+        getSelectedOperationName(
+            null,
+            this._storage.get('operationName'),
+            queryFacts && queryFacts.operations,
+          );
 
     // Initialize state
     this.state = {
@@ -125,7 +131,23 @@ export class GraphiQL extends React.Component {
       isWaitingForResponse: false,
       subscription: null,
       ...queryFacts,
-      endpoint: alreadySelected
+      endpoint: alreadySelected,
+      customHeadersOpen:
+        this._storage.get('customHeadersOpen') === 'true' || false,
+      docExplorerWidth: Number(this._storage.get('docExplorerWidth')) || 350,
+      customHeadersWidth:
+        Number(this._storage.get('customHeadersWidth')) || 500,
+      isWaitingForResponse: false,
+      subscription: null,
+      customHeaders: this._storage.get('customHeaders') ?
+        JSON.parse(this._storage.get('customHeaders')) :
+        {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+      newHeaderKey: '',
+      newHeaderValue: '',
+      ...queryFacts,
     };
 
     // Ensure only the last executed editor query is rendered.
@@ -238,8 +260,14 @@ export class GraphiQL extends React.Component {
     this._storage.set('editorFlex', this.state.editorFlex);
     this._storage.set('variableEditorHeight', this.state.variableEditorHeight);
     this._storage.set('docExplorerWidth', this.state.docExplorerWidth);
+    this._storage.set('customHeadersWidth', this.state.customHeadersWidth);
     this._storage.set('docExplorerOpen', this.state.docExplorerOpen);
     this._storage.set('historyPaneOpen', this.state.historyPaneOpen);
+    this._storage.set('customHeadersOpen', this.state.customHeadersOpen);
+    this._storage.set(
+      'customHeaders',
+      JSON.stringify(this.state.customHeaders),
+    );
   }
 
   setEndpoint() {
@@ -318,10 +346,18 @@ export class GraphiQL extends React.Component {
       zIndex: '7',
     };
 
+    const customHeadersStyle = {
+      display: this.state.customHeadersOpen ? 'block' : 'none',
+      width: this.state.customHeadersWidth,
+      zIndex: '7',
+    };
+
     const variableOpen = this.state.variableEditorOpen;
     const variableStyle = {
       height: variableOpen ? this.state.variableEditorHeight : null,
     };
+
+    const customHeaders = this.state.customHeaders;
 
     return (
       <div className="graphiql-container">
@@ -433,6 +469,71 @@ export class GraphiQL extends React.Component {
               {'\u2715'}
             </div>
           </DocExplorer>
+        </div>
+        <div className="customHeadersWrapper" style={customHeadersStyle}>
+          <div
+            className="customHeadersResizer"
+            onMouseDown={this.handleCustomHeadersResizeStart}
+          />
+          <table className="customHeadersTable">
+            <thead>
+              <th>
+                {'Key'}
+              </th>
+              <th>
+                {'Value'}
+              </th>
+              <th>
+                <div
+                  className="customHeadersHide"
+                  onClick={this.handleCustomHeaders}>
+                  {'\u2715'}
+                </div>
+              </th>
+            </thead>
+            <tbody>
+              {Object.keys(customHeaders).map((headerKey, i) => {
+                return (
+                  <tr key={i}>
+                    <td className="mainHeaders" title={headerKey}>
+                      {this.truncateLongString(headerKey)}
+                    </td>
+                    <td
+                      className="mainHeaders"
+                      title={customHeaders[headerKey]}>
+                      {this.truncateLongString(customHeaders[headerKey])}
+                    </td>
+                    <td className="lastButtonColumn">
+                      <div
+                        className="button button-delete"
+                        onClick={evt =>
+                          this.removeCustomHeader(evt, headerKey)}>
+                        {'\u2715'}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <input
+            onChange={evt => this.updateHeaderKey(evt)}
+            type="text"
+            placeholder="Enter header key..."
+            value={this.state.newHeaderKey}
+          />
+          <input
+            onChange={evt => this.updateHeaderValue(evt)}
+            type="text"
+            placeholder="Enter header value..."
+            value={this.state.newHeaderValue}
+          />
+          <br />
+          <div
+            onClick={this.handleAddCustomHeader}
+            className="button button-add">
+            {'+'} <span>{'Add Header'}</span>
+          </div>
         </div>
       </div>
     );
@@ -872,6 +973,54 @@ export class GraphiQL extends React.Component {
     this.setState({ historyPaneOpen: !this.state.historyPaneOpen });
   };
 
+  handleCustomHeaders = () => {
+    if (typeof this.props.onToggleHistory === 'function') {
+      this.props.onToggleHistory(!this.state.customHeadersOpen);
+    }
+    this.setState({ customHeadersOpen: !this.state.customHeadersOpen });
+  };
+
+  updateHeaderKey = evt => {
+    this.setState({
+      newHeaderKey: evt.target.value,
+    });
+  };
+
+  updateHeaderValue = evt => {
+    this.setState({
+      newHeaderValue: evt.target.value,
+    });
+  };
+
+  handleAddCustomHeader = () => {
+    if (
+      typeof this.state.newHeaderKey === 'string' &&
+      this.state.newHeaderKey !== '' &&
+      typeof this.state.newHeaderValue === 'string' &&
+      this.state.newHeaderValue !== ''
+    ) {
+      const headers = this.state.customHeaders;
+      headers[this.state.newHeaderKey] = this.state.newHeaderValue;
+      this.setState({
+        customHeaders: headers,
+        newHeaderKey: '',
+        newHeaderValue: '',
+      });
+    }
+  };
+
+  removeCustomHeader = (evt, headerKey) => {
+    const headers = this.state.customHeaders;
+    delete headers[headerKey];
+    this.setState({
+      customHeaders: headers,
+    });
+  };
+
+  truncateLongString = str => {
+    return str.length > 10 ? str.substring(0, 10) + '...' : str;
+  };
+
   handleSelectHistoryQuery = (query, variables, operationName) => {
     this.handleEditQuery(query);
     this.handleEditVariables(variables);
@@ -974,10 +1123,44 @@ export class GraphiQL extends React.Component {
     document.addEventListener('mouseup', onMouseUp);
   };
 
-  handleDocsResetResize = () => {
-    this.setState({
-      docExplorerWidth: DEFAULT_DOC_EXPLORER_WIDTH,
-    });
+  handleCustomHeadersResizeStart = downEvent => {
+    downEvent.preventDefault();
+
+    const hadWidth = this.state.customHeadersWidth;
+    const offset = downEvent.clientX - getLeft(downEvent.target);
+
+    let onMouseMove = moveEvent => {
+      if (moveEvent.buttons === 0) {
+        return onMouseUp();
+      }
+
+      const app = ReactDOM.findDOMNode(this);
+      const cursorPos = moveEvent.clientX - getLeft(app) - offset;
+      const headersSize = app.clientWidth - cursorPos;
+
+      if (headersSize < 300) {
+        this.setState({ customHeadersOpen: false });
+      } else {
+        this.setState({
+          customHeadersOpen: true,
+          customHeadersWidth: Math.min(headersSize, 650),
+        });
+      }
+    };
+
+    let onMouseUp = () => {
+      if (!this.state.customHeadersOpen) {
+        this.setState({ customHeadersWidth: hadWidth });
+      }
+
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      onMouseMove = null;
+      onMouseUp = null;
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   };
 
   handleVariableResizeStart = downEvent => {
@@ -1031,7 +1214,14 @@ export class GraphiQL extends React.Component {
 GraphiQL.Logo = function GraphiQLLogo(props) {
   return (
     <div className="title">
-      {props.children || <span>{'Graph'}<em>{'i'}</em>{'QL'}</span>}
+      {props.children ||
+        <span>
+          {'Graph'}
+          <em>
+            {'i'}
+          </em>
+          {'QL'}
+        </span>}
     </div>
   );
 };

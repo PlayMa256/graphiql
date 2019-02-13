@@ -1,4 +1,4 @@
-GraphiQL
+GraphiQL - With Custom Headers
 ========
 
 This is a fork of graphiql, where it was added functionalities to inject custom headers on the request and also change the endpoint that is being used on the fly.
@@ -31,34 +31,15 @@ All other functionalities remain the same as the original package.
 [![CDNJS](https://img.shields.io/cdnjs/v/graphiql.svg)](https://cdnjs.com/libraries/graphiql)
 [![npm](https://img.shields.io/npm/v/graphiql.svg)](https://www.npmjs.com/package/graphiql)
 
-[![](resources/graphiql.png)](http://graphql.org/swapi-graphql)
 
-### Getting started
-
-Using a node.js server? Just use [`express-graphql`](https://github.com/graphql/express-graphql)! It can automatically present GraphiQL. Using another GraphQL service? GraphiQL is pretty easy to set up. With `npm`:
-
-```
-npm install --save graphiql
-```
-
-Alternatively, if you are using [`yarn`](https://yarnpkg.com/):
-
-```
-yarn add graphiql
-```
-
-GraphiQL provides a React component responsible for rendering the UI, which should be provided with a function for fetching from GraphQL, we recommend using the [fetch](https://fetch.spec.whatwg.org/) standard API.
+To allow **Custom Headers** feature your `graphQLFetcher` might take an extra argument
+and supply it instead of headers:
 
 ```js
-import React from 'react';
-import ReactDOM from 'react-dom';
-import GraphiQL from 'graphiql';
-import fetch from 'isomorphic-fetch';
-
-function graphQLFetcher(graphQLParams) {
+function graphQLFetcher(graphQLParams, myCustomHeaders) {
   return fetch(window.location.origin + '/graphql', {
     method: 'post',
-    headers: { 'Content-Type': 'application/json' },
+    headers: myCustomHeaders,
     body: JSON.stringify(graphQLParams),
   }).then(response => response.json());
 }
