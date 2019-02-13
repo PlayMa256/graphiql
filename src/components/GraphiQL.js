@@ -78,7 +78,7 @@ export class GraphiQL extends React.Component {
     this.setEndpoint = this.setEndpoint.bind(this);
     this.updateEndpoint = this.updateEndpoint.bind(this);
 
-    const alreadySelected = localStorage.getItem('chromeiqlEndpoint') || window.location.origin;
+    const alreadySelected = localStorage.getItem('chromeiqlEndpoint') || window.location.origin + "/graphql";
 
     // Cache the storage instance
     this._storage = new StorageAPI(props.storage);
